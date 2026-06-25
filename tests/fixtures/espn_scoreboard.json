@@ -1,0 +1,43 @@
+{
+  "events": [
+    {
+      "id": "401001",
+      "date": "2026-06-25T16:00Z",
+      "name": "South Africa at South Korea",
+      "competitions": [
+        {
+          "date": "2026-06-25T16:00Z",
+          "competitors": [
+            {"homeAway": "home", "team": {"displayName": "South Korea"}, "score": "0"},
+            {"homeAway": "away", "team": {"displayName": "South Africa"}, "score": "0"}
+          ],
+          "status": {"type": {"state": "pre", "completed": false}},
+          "odds": [
+            {
+              "provider": {"name": "ESPN BET"},
+              "homeTeamOdds": {"moneyLine": -155},
+              "awayTeamOdds": {"moneyLine": 450},
+              "drawOdds": {"moneyLine": 280}
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "401002",
+      "date": "2026-06-25T16:00Z",
+      "name": "Czechia at Mexico",
+      "competitions": [
+        {
+          "date": "2026-06-25T16:00Z",
+          "competitors": [
+            {"homeAway": "home", "team": {"displayName": "Mexico"}, "score": "0"},
+            {"homeAway": "away", "team": {"displayName": "Czechia"}, "score": "0"}
+          ],
+          "status": {"type": {"state": "pre", "completed": false}},
+          "odds": []
+        }
+      ]
+    }
+  ]
+}

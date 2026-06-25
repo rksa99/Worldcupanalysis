@@ -1,15 +1,25 @@
 """Tests for the Daily World Cup Intelligence pipeline (stdlib unittest)."""
 
+import json
+import os
 import unittest
 
-from worldcup.data import load_day
+from worldcup import providers
+from worldcup.data import day_to_dict, load_day_file
 from worldcup.dashboard import analyze_day, render
 from worldcup.incentives import resolve_motivations
 from worldcup.models import DayData, Group, Match, Odds, TeamStanding
 from worldcup.odds import implied_from_odds
 from worldcup.scores import build_score_model
 
-SAMPLE_DATE = "2026-06-25"
+HERE = os.path.dirname(__file__)
+SYNTHETIC_DAY = os.path.join(HERE, "..", "examples", "synthetic-day.json")
+FIXTURES = os.path.join(HERE, "fixtures")
+
+
+def _fixture(name):
+    with open(os.path.join(FIXTURES, name), encoding="utf-8") as fh:
+        return json.load(fh)
 
 
 class OddsTests(unittest.TestCase):
@@ -66,7 +76,7 @@ class IncentiveTests(unittest.TestCase):
 
 class DashboardTests(unittest.TestCase):
     def test_sample_day_renders(self):
-        day = load_day(SAMPLE_DATE)
+        day = load_day_file(SYNTHETIC_DAY)
         self.assertIsInstance(day, DayData)
         analyses = analyze_day(day)
         self.assertEqual(len(analyses), 6)
@@ -81,10 +91,79 @@ class DashboardTests(unittest.TestCase):
             self.assertIn(section, out)
 
     def test_projection_qualifies_leaders(self):
-        day = load_day(SAMPLE_DATE)
+        day = load_day_file(SYNTHETIC_DAY)
         out = render(day)
         self.assertIn("Mexico | 9", out)
         self.assertIn("Qualified (1st)", out)
+
+
+class ProviderTests(unittest.TestCase):
+    def test_american_to_decimal(self):
+        self.assertAlmostEqual(providers.american_to_decimal(-155), 1.6452, places=3)
+        self.assertAlmostEqual(providers.american_to_decimal(450), 5.50, places=3)
+
+    def test_normalize_aliases(self):
+        self.assertEqual(
+            providers.normalize_team("Czech Republic"),
+            providers.normalize_team("Czechia"),
+        )
+        self.assertEqual(providers.normalize_team("Korea Republic"), "south korea")
+
+    def test_parse_espn_standings_and_scoreboard(self):
+        groups, team_group = providers.parse_standings(_fixture("espn_standings.json"))
+        self.assertIn("A", groups)
+        self.assertEqual(len(groups["A"].standings), 4)
+        mex = groups["A"].standing_for("Mexico")
+        self.assertEqual(mex.points, 6)
+        self.assertEqual(team_group[providers.normalize_team("Mexico")], "A")
+
+        matches = providers.parse_scoreboard(_fixture("espn_scoreboard.json"), team_group)
+        self.assertEqual(len(matches), 2)
+        kor = next(m for m in matches if m.home == "South Korea")
+        self.assertEqual(kor.group, "A")
+        # ESPN embedded odds parsed into decimal.
+        self.assertIsNotNone(kor.odds)
+        self.assertAlmostEqual(kor.odds.away, 5.50, places=2)
+
+    def test_consensus_odds_overlay_with_alias(self):
+        groups, team_group = providers.parse_standings(_fixture("espn_standings.json"))
+        matches = providers.parse_scoreboard(_fixture("espn_scoreboard.json"), team_group)
+        # Mexico vs Czechia had no ESPN odds; Odds API lists it as "Czech Republic".
+        n = providers.overlay_consensus_odds(matches, _fixture("odds_api.json"))
+        self.assertEqual(n, 2)
+        mex = next(m for m in matches if m.home == "Mexico")
+        self.assertIsNotNone(mex.odds)
+        self.assertAlmostEqual(mex.odds.home, 1.50, places=2)
+        kor = next(m for m in matches if m.home == "South Korea")
+        # Averaged across two books: (1.66 + 1.70) / 2.
+        self.assertAlmostEqual(kor.odds.home, 1.68, places=2)
+
+    def test_live_load_with_mocked_http(self):
+        sb = _fixture("espn_scoreboard.json")
+        st = _fixture("espn_standings.json")
+        odds = _fixture("odds_api.json")
+
+        def fake_get(url, timeout=25):
+            if "scoreboard" in url:
+                return sb
+            if "standings" in url:
+                return st
+            if "the-odds-api" in url:
+                return odds
+            raise AssertionError(url)
+
+        original = providers.http_get_json
+        providers.http_get_json = fake_get
+        try:
+            day = providers.load_day_live("2026-06-25", odds_api_key="TESTKEY")
+        finally:
+            providers.http_get_json = original
+
+        self.assertEqual(day.date, "2026-06-25")
+        self.assertEqual(len(day.matches), 2)
+        self.assertIn("A", day.groups)
+        # Round-trips through the cache serializer.
+        self.assertEqual(day_to_dict(day)["date"], "2026-06-25")
 
 
 if __name__ == "__main__":

@@ -1,4 +1,5 @@
 {
+  "_note": "SYNTHETIC demo data — not real results. Used for offline tests and to illustrate output. For real numbers run the app live (ESPN + The Odds API); see README.",
   "date": "2026-06-25",
   "groups": {
     "A": {

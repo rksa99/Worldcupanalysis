@@ -1,0 +1,31 @@
+[
+  {
+    "home_team": "South Korea",
+    "away_team": "South Africa",
+    "commence_time": "2026-06-25T16:00:00Z",
+    "bookmakers": [
+      {"key": "book1", "markets": [{"key": "h2h", "outcomes": [
+        {"name": "South Korea", "price": 1.66},
+        {"name": "South Africa", "price": 5.40},
+        {"name": "Draw", "price": 3.70}
+      ]}]},
+      {"key": "book2", "markets": [{"key": "h2h", "outcomes": [
+        {"name": "South Korea", "price": 1.70},
+        {"name": "South Africa", "price": 5.20},
+        {"name": "Draw", "price": 3.60}
+      ]}]}
+    ]
+  },
+  {
+    "home_team": "Mexico",
+    "away_team": "Czech Republic",
+    "commence_time": "2026-06-25T16:00:00Z",
+    "bookmakers": [
+      {"key": "book1", "markets": [{"key": "h2h", "outcomes": [
+        {"name": "Mexico", "price": 1.50},
+        {"name": "Czech Republic", "price": 6.50},
+        {"name": "Draw", "price": 4.00}
+      ]}]}
+    ]
+  }
+]

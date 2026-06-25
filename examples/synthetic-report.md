@@ -1,3 +1,6 @@
+> **⚠️ SYNTHETIC DEMO** — generated from `examples/synthetic-day.json`, not real results.
+> Run the app live (`--source live`, ESPN + The Odds API) for real numbers. See README.
+
 # Daily World Cup Intelligence — 2026-06-25
 
 _6 matches scheduled. Read each row in ~30 seconds: who is favored, why, what they need, expected behavior, likely scores, confidence, and qualification impact._

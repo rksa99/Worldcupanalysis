@@ -14,22 +14,52 @@ day. The goal: a reader understands each match in ~30 seconds —
 
 ## Quick start
 
+The app is **live by default** — it pulls real fixtures, results and standings
+from ESPN's public API and real betting odds from The Odds API.
+
 ```bash
-# Generate today's dashboard (uses system date -> data/<date>.json)
+# Today's dashboard from live data (ESPN + odds)
 python3 -m worldcup.cli
 
-# A specific match day
+# A specific match day, live
 python3 -m worldcup.cli --date 2026-06-25
 
-# Write to a file instead of stdout
-python3 -m worldcup.cli --date 2026-06-25 --out report.md
+# Enable multi-sportsbook consensus odds (recommended)
+export ODDS_API_KEY=your_key_from_the-odds-api.com
+python3 -m worldcup.cli --date 2026-06-25 --out report.md --cache
 
-# Point at an explicit data file
-python3 -m worldcup.cli --file path/to/day.json
+# Offline / demo from a JSON file
+python3 -m worldcup.cli --source file --file examples/synthetic-day.json
 ```
 
 No third-party dependencies — pure Python 3.10+ standard library.
-A rendered example lives in [`reports/2026-06-25.md`](reports/2026-06-25.md).
+A rendered (synthetic) example lives in
+[`examples/synthetic-report.md`](examples/synthetic-report.md).
+
+### Live data sources
+
+| Data | Source | Key needed |
+| --- | --- | --- |
+| Fixtures, results, standings | ESPN public API (`site.api.espn.com`, league `fifa.world`) | No |
+| Betting odds (multi-book consensus) | [The Odds API](https://the-odds-api.com) | `ODDS_API_KEY` |
+| Betting odds (fallback) | ESPN embedded odds | No |
+
+When `ODDS_API_KEY` is set, odds are the average h2h decimal price across all
+US/UK/EU books The Odds API returns. Without it, ESPN's embedded line is used
+where available; otherwise probabilities fall back to the scoreline model.
+
+> **Network requirement.** The hosts above must be reachable from wherever the
+> app runs. Some managed/CI sandboxes (including the one this repo may have been
+> generated in) restrict outbound egress and will block these hosts with a 403
+> — run on a normal network, or allowlist `site.api.espn.com` and
+> `api.the-odds-api.com`. Use `--source auto` to fall back to a cached
+> `data/<date>.json` when live fetch is unavailable, and `--cache` to write one.
+
+### Modes (`--source`)
+
+- `auto` (default): try live, fall back to a cached `data/<date>.json`.
+- `live`: live only; error out if a source is unreachable.
+- `file`: read a specific JSON file (`--file`) — for offline use and demos.
 
 ## Output
 
@@ -59,13 +89,21 @@ The dashboard contains:
 ## How it works
 
 ```
-data/<date>.json ──> models ──> ┌─ odds (de-vig 1X2 -> fair probabilities)
-                                 ├─ scores (Poisson xG -> top scorelines + W/D/L)
-                                 ├─ incentives (final-matchday scenario solver)
-                                 ├─ analysis (favorite, style, confidence, impact)
-                                 └─ projections (projected final group tables)
-                                          └─> dashboard (markdown render)
+live: ESPN (fixtures/results/standings) + The Odds API (odds)  ─┐
+file: data/<date>.json                                          ├─> providers ─> models ─┐
+                                                                ─┘                        │
+   ┌───────────────────────────────────────────────────────────────────────────────────┘
+   ├─ odds (de-vig 1X2 -> fair probabilities)
+   ├─ scores (Poisson xG -> top scorelines + W/D/L)
+   ├─ incentives (final-matchday scenario solver)
+   ├─ analysis (favorite, style, confidence, impact)
+   └─ projections (projected final group tables)
+            └─> dashboard (markdown render)
 ```
+
+`worldcup/providers.py` is the live data layer; `worldcup/data.py` handles
+JSON load/save (caching). Everything downstream depends only on the `DayData`
+model, so the data source is fully swappable.
 
 - **Probabilities** come from the aggregated 1X2 odds, with the bookmaker
   overround removed by proportional normalisation.
@@ -88,9 +126,10 @@ difference frozen as the tie-break — it does not re-simulate goal difference
 from today's predicted scores. For matchdays where qualification hinges on a
 narrow goal-difference swing, treat the motivation label as indicative.
 
-## Data format
+## Data format (file mode / cache)
 
-One JSON file per day, `data/<date>.json`:
+Live runs need no files. For offline use, demos, or the `--cache` snapshot the
+app reads/writes one JSON file per day (`data/<date>.json`):
 
 ```json
 {
@@ -119,12 +158,21 @@ One JSON file per day, `data/<date>.json`:
 `odds` and `xg` are optional but recommended; `xg` is derived from `odds` when
 omitted. `situation` and `motivation` override the engine when present.
 
-### Going live
+### Adding another live source
 
-`worldcup/data.py` is the only seam between the pipeline and its data source.
-To run on real fixtures, replace `load_day` with a provider that pulls live
-standings, results, head-to-head history, and aggregated sportsbook odds into
-the same `DayData` model — every downstream module stays unchanged.
+`worldcup/providers.py` holds the live integrations. To add a source (e.g.
+api-football, football-data.org), parse its response into the same `TeamStanding`
+/ `Match` / `DayData` models and call it from `load_day_live` — every downstream
+module stays unchanged.
+
+## Daily automation
+
+Run it each morning with cron and post/save the result, e.g.:
+
+```cron
+0 7 * * *  ODDS_API_KEY=xxxx /usr/bin/python3 -m worldcup.cli --cache \
+           --out /var/www/worldcup/$(date +\%F).md
+```
 
 ## Tests
 

@@ -1,0 +1,67 @@
+{
+  "date": "2026-06-25",
+  "groups": {
+    "A": {
+      "standings": [
+        {"team": "Mexico",       "played": 2, "won": 2, "drawn": 0, "lost": 0, "gf": 5, "ga": 1},
+        {"team": "South Korea",  "played": 2, "won": 1, "drawn": 0, "lost": 1, "gf": 3, "ga": 2},
+        {"team": "South Africa", "played": 2, "won": 1, "drawn": 0, "lost": 1, "gf": 2, "ga": 2},
+        {"team": "Czechia",      "played": 2, "won": 0, "drawn": 1, "lost": 1, "gf": 1, "ga": 2}
+      ]
+    },
+    "E": {
+      "standings": [
+        {"team": "Germany",     "played": 2, "won": 2, "drawn": 0, "lost": 0, "gf": 5, "ga": 1},
+        {"team": "Senegal",     "played": 2, "won": 1, "drawn": 0, "lost": 1, "gf": 2, "ga": 1},
+        {"team": "Ecuador",     "played": 2, "won": 1, "drawn": 0, "lost": 1, "gf": 2, "ga": 2},
+        {"team": "Qatar",       "played": 2, "won": 0, "drawn": 1, "lost": 1, "gf": 1, "ga": 3}
+      ]
+    },
+    "F": {
+      "standings": [
+        {"team": "Brazil",       "played": 2, "won": 2, "drawn": 0, "lost": 0, "gf": 4, "ga": 1},
+        {"team": "Croatia",      "played": 2, "won": 1, "drawn": 1, "lost": 0, "gf": 4, "ga": 2},
+        {"team": "Nigeria",      "played": 2, "won": 0, "drawn": 1, "lost": 1, "gf": 2, "ga": 3},
+        {"team": "Saudi Arabia", "played": 2, "won": 0, "drawn": 1, "lost": 1, "gf": 1, "ga": 5}
+      ]
+    }
+  },
+  "matches": [
+    {
+      "home": "South Korea", "away": "South Africa", "group": "A",
+      "kickoff": "2026-06-25T16:00:00Z",
+      "odds": {"home": 1.65, "draw": 3.70, "away": 5.50},
+      "h2h": "Korea unbeaten in last 3 meetings"
+    },
+    {
+      "home": "Mexico", "away": "Czechia", "group": "A",
+      "kickoff": "2026-06-25T16:00:00Z",
+      "odds": {"home": 1.50, "draw": 4.00, "away": 6.50},
+      "h2h": "Split over last 4"
+    },
+    {
+      "home": "Germany", "away": "Ecuador", "group": "E",
+      "kickoff": "2026-06-25T20:00:00Z",
+      "odds": {"home": 1.45, "draw": 4.20, "away": 7.00},
+      "h2h": "First competitive meeting"
+    },
+    {
+      "home": "Senegal", "away": "Qatar", "group": "E",
+      "kickoff": "2026-06-25T20:00:00Z",
+      "odds": {"home": 1.55, "draw": 3.80, "away": 6.00},
+      "h2h": "Senegal won the only prior meeting"
+    },
+    {
+      "home": "Brazil", "away": "Croatia", "group": "F",
+      "kickoff": "2026-06-25T18:00:00Z",
+      "odds": {"home": 2.40, "draw": 3.10, "away": 3.20},
+      "h2h": "Brazil edged a tight 2022 quarter-final"
+    },
+    {
+      "home": "Nigeria", "away": "Saudi Arabia", "group": "F",
+      "kickoff": "2026-06-25T18:00:00Z",
+      "odds": {"home": 2.70, "draw": 3.00, "away": 2.80},
+      "h2h": "No recent meetings"
+    }
+  ]
+}

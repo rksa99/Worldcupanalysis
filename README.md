@@ -189,9 +189,41 @@ one (e.g. api-football, football-data.org), parse its response into the domain
 models and compose it in `sources.load_live` — every downstream module stays
 unchanged.
 
-## Daily automation
+## Deploying to Render
 
-Run it each morning with cron and post/save the result, e.g.:
+The repo ships a [`render.yaml`](render.yaml) blueprint and a web server
+(`python -m worldcup.web`) that serves the dashboard at a URL:
+
+| Route | Content |
+| --- | --- |
+| `/` | HTML dashboard for today (or `?date=YYYY-MM-DD`) |
+| `/report.md` | markdown version |
+| `/report.json` | machine-readable version |
+| `/health` | liveness probe |
+
+Steps:
+
+1. Push this code to GitHub (any branch; `main` is simplest).
+2. At [dashboard.render.com](https://dashboard.render.com): **New + → Blueprint**,
+   connect the repo. Render reads `render.yaml` and configures the service.
+3. When prompted, paste your `ODDS_API_KEY` (from
+   [the-odds-api.com](https://the-odds-api.com); optional — without it ESPN's
+   embedded odds are used).
+4. Deploy. Your dashboard is live at `https://<service-name>.onrender.com`.
+
+Reports are built on demand and cached in memory for 15 minutes
+(`WORLDCUP_CACHE_TTL`), so odds stay fresh through the day without hammering
+the sources. On the free plan the service sleeps when idle — the first
+request each morning takes ~30–60 s to wake, then it's instant.
+
+Prefer a manual setup over the blueprint? **New + → Web Service**, pick the
+repo/branch, Build Command `pip install -r requirements.txt`, Start Command
+`python -m worldcup.web`, and add `ODDS_API_KEY` under Environment.
+
+## Daily automation (alternative)
+
+For a file-based morning report instead of (or alongside) the web service, run
+the CLI from cron — or a Render Cron Job with the same command:
 
 ```cron
 0 7 * * *  ODDS_API_KEY=xxxx /usr/bin/python3 -m worldcup.cli --cache \

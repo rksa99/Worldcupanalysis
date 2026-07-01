@@ -1,0 +1,2 @@
+# No third-party dependencies — the app is pure Python 3.10+ standard library.
+# This file exists so Render's Python runtime has something to install.

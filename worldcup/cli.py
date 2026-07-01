@@ -1,13 +1,13 @@
 """Command-line entry point: generate the daily dashboard from live data.
 
-    python -m worldcup.cli                       # today, live (ESPN + odds)
-    python -m worldcup.cli --date 2026-06-25     # a specific day, live
+    python -m worldcup.cli                        # today, live (ESPN + odds)
+    python -m worldcup.cli --date 2026-06-25      # a specific day, live
+    python -m worldcup.cli --format json          # machine-readable output
     python -m worldcup.cli --source file --file examples/synthetic-day.json
-    python -m worldcup.cli --out report.md --cache   # write report + cache data
+    python -m worldcup.cli --out report.md --cache
 
-Live structure (fixtures/results/standings) comes from ESPN's public API.
-Set ODDS_API_KEY to pull multi-sportsbook consensus odds from The Odds API;
-otherwise ESPN's embedded odds are used as a best-effort fallback.
+Set ODDS_API_KEY for multi-sportsbook consensus odds (The Odds API); otherwise
+ESPN's embedded odds are used as a best-effort fallback.
 """
 
 from __future__ import annotations
@@ -17,28 +17,29 @@ import datetime as _dt
 import os
 import sys
 
-from .data import load_day, load_day_file, save_day, DATA_DIR
-from .dashboard import render
-from .models import DayData
-from .providers import ProviderError, load_day_live
+from . import render, sources
+from .domain import DayData
+from .report import DEFAULT_SIMS, build_report
+from .sources import SourceError, filesource
 
 
-def _load(args) -> DayData:
+def _load(args) -> tuple[DayData, str]:
+    """Return (day, source note)."""
     if args.source == "file" or args.file:
-        return load_day_file(args.file) if args.file else load_day(args.date, args.data_dir)
+        if args.file:
+            return filesource.load(args.file), f"file {os.path.basename(args.file)}"
+        return filesource.load_for_date(args.date, args.data_dir), f"cached {args.date}.json"
 
-    # live or auto
     try:
-        return load_day_live(args.date)
-    except ProviderError as exc:
+        return sources.load_live(args.date), "live (ESPN + consensus odds)"
+    except SourceError as exc:
         if args.source == "live":
             raise
-        # auto: fall back to a cached/local file for the date.
         print(
             f"warning: live fetch failed ({exc}); falling back to cached data.",
             file=sys.stderr,
         )
-        return load_day(args.date, args.data_dir)
+        return filesource.load_for_date(args.date, args.data_dir), f"cached {args.date}.json"
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -55,8 +56,7 @@ def main(argv: list[str] | None = None) -> int:
         "--source",
         choices=("live", "auto", "file"),
         default="auto",
-        help="Where to get data: live (ESPN+odds), file, or auto (live then "
-        "cached file). Default: auto.",
+        help="live (ESPN+odds), file, or auto (live then cached file). Default: auto.",
     )
     parser.add_argument(
         "--data-dir",
@@ -71,7 +71,25 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--cache",
         action="store_true",
-        help="After a live fetch, write the data to data/<date>.json.",
+        help="After loading, write the data snapshot to data/<date>.json.",
+    )
+    parser.add_argument(
+        "--format",
+        choices=("md", "json"),
+        default="md",
+        help="Output format. Default: md (markdown).",
+    )
+    parser.add_argument(
+        "--sims",
+        type=int,
+        default=DEFAULT_SIMS,
+        help=f"Monte Carlo simulations per group (default {DEFAULT_SIMS}).",
+    )
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=None,
+        help="RNG seed. Defaults to a value derived from the date (reproducible).",
     )
     parser.add_argument(
         "--out",
@@ -81,17 +99,18 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     try:
-        day = _load(args)
-    except (FileNotFoundError, ProviderError) as exc:
+        day, source_note = _load(args)
+    except (FileNotFoundError, SourceError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
 
     if args.cache:
-        cache_path = os.path.join(args.data_dir or DATA_DIR, f"{day.date}.json")
-        save_day(day, cache_path)
-        print(f"Cached live data to {cache_path}", file=sys.stderr)
+        cache_path = os.path.join(args.data_dir or filesource.DATA_DIR, f"{day.date}.json")
+        filesource.save(day, cache_path)
+        print(f"Cached data snapshot to {cache_path}", file=sys.stderr)
 
-    output = render(day)
+    report = build_report(day, n_sims=args.sims, seed=args.seed, source_note=source_note)
+    output = render.to_json(report) if args.format == "json" else render.to_markdown(report)
 
     if args.out:
         with open(args.out, "w", encoding="utf-8") as fh:

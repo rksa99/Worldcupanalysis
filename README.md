@@ -30,6 +30,9 @@ python3 -m worldcup.cli --date 2026-06-25 --out report.md --cache
 
 # Offline / demo from a JSON file
 python3 -m worldcup.cli --source file --file examples/synthetic-day.json
+
+# Machine-readable output, custom simulation depth
+python3 -m worldcup.cli --format json --sims 50000 --seed 1
 ```
 
 No third-party dependencies — pure Python 3.10+ standard library.
@@ -86,45 +89,66 @@ The dashboard contains:
 | Confidence | High (market + incentives agree), Medium, Low (they conflict) |
 | Projected Impact | One-sentence qualification consequence |
 
-## How it works
+## Architecture
+
+Data flows one way through small, single-purpose layers:
 
 ```
-live: ESPN (fixtures/results/standings) + The Odds API (odds)  ─┐
-file: data/<date>.json                                          ├─> providers ─> models ─┐
-                                                                ─┘                        │
-   ┌───────────────────────────────────────────────────────────────────────────────────┘
-   ├─ odds (de-vig 1X2 -> fair probabilities)
-   ├─ scores (Poisson xG -> top scorelines + W/D/L)
-   ├─ incentives (final-matchday scenario solver)
-   ├─ analysis (favorite, style, confidence, impact)
-   └─ projections (projected final group tables)
-            └─> dashboard (markdown render)
+sources/  espn.py (fixtures/results/standings)   filesource.py (offline/cache)
+          oddsapi.py (multi-book consensus)      names.py, http.py
+              │
+              ▼
+domain.py   DayData — the one vocabulary every layer speaks
+              │
+              ▼
+markets.py  de-vig 1X2 odds -> fair probabilities
+poisson.py  per-match scoreline probability matrix (xG calibrated to market)
+              │
+              ▼
+simulate.py Monte Carlo group simulator — the single engine
+              │
+              ▼
+narrative.py labels backed by simulated probabilities
+report.py    typed DailyReport (plain data)
+              │
+              ▼
+render.py    markdown | JSON   (add renderers without touching the engine)
 ```
 
-`worldcup/providers.py` is the live data layer; `worldcup/data.py` handles
-JSON load/save (caching). Everything downstream depends only on the `DayData`
-model, so the data source is fully swappable.
+### The engine
 
-- **Probabilities** come from the aggregated 1X2 odds, with the bookmaker
-  overround removed by proportional normalisation.
-- **Scorelines** come from a Poisson model. If a match has odds but no authored
-  expected goals, the model solves for the xG pair whose outcome split best
-  matches the de-vigged market — so scores and probabilities stay consistent.
-- **Incentives** are computed by enumerating every win/draw/loss combination of
-  a group's remaining (final-matchday) fixtures and checking which of a team's
-  own results still produce a top-two finish. Teams that can't reach the top two
-  but can still finish 3rd are flagged as chasing a best-third place (the 2026
-  format advances the eight best third-placed teams). Current goal difference is
-  used as the tie-break; authored overrides in the data file always win.
-- **Confidence** is High when the market favorite is also the side with the
-  stronger incentive, Low when the price and the incentives pull apart.
+One **Monte Carlo simulation** (default 10,000 runs per group, `--sims`)
+answers every question the dashboard asks, from a single source of truth:
+
+- **Scorelines** are sampled from each match's Poisson matrix. When a match has
+  market odds but no authored xG, the matrix is calibrated so its win/draw/loss
+  split matches the de-vigged market — scores, probabilities, and simulations
+  always agree.
+- **Team motivation** comes from *conditional* qualification probabilities
+  measured inside the simulation: P(top two | win), P(top two | draw),
+  P(top two | loss). "Must win (through in 92% of wins)" is a measured number,
+  not a heuristic. Goal difference is simulated per run — never frozen.
+- **Projected tables** show simulation-average points and goal difference plus
+  each team's top-two probability, so uncertainty is visible instead of a
+  single assumed result.
+- **Projected impact** cites the simulation directly ("advances in 83% of
+  simulations"), and **confidence** is High when the market favorite is also
+  the side with the stronger incentive, Low when price and incentives conflict.
+- Runs are **reproducible**: the seed defaults to a value derived from the date
+  (same morning, same report), or pass `--seed`.
+
+Win probabilities in the main table come from the aggregated 1X2 odds with the
+bookmaker overround removed by proportional normalisation; the Poisson model is
+the fallback when no odds exist. Authored `motivation`/`situation` overrides in
+a data file always win over generated labels.
 
 ### Limitations
 
-The incentive solver reasons over match *results* (W/D/L) with current goal
-difference frozen as the tie-break — it does not re-simulate goal difference
-from today's predicted scores. For matchdays where qualification hinges on a
-narrow goal-difference swing, treat the motivation label as indicative.
+- Group tie-breaks are modelled as points → goal difference → goals for →
+  random; FIFA's head-to-head and fair-play criteria are not modelled.
+- Best-third qualification is flagged per group but not resolved across all
+  twelve groups (that needs every group's data, not just today's).
+- Probabilities inherit whatever bias the betting market has.
 
 ## Data format (file mode / cache)
 
@@ -160,10 +184,10 @@ omitted. `situation` and `motivation` override the engine when present.
 
 ### Adding another live source
 
-`worldcup/providers.py` holds the live integrations. To add a source (e.g.
-api-football, football-data.org), parse its response into the same `TeamStanding`
-/ `Match` / `DayData` models and call it from `load_day_live` — every downstream
-module stays unchanged.
+`worldcup/sources/` holds the live integrations (one module per source). To add
+one (e.g. api-football, football-data.org), parse its response into the domain
+models and compose it in `sources.load_live` — every downstream module stays
+unchanged.
 
 ## Daily automation
 

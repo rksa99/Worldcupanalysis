@@ -114,8 +114,11 @@ def to_markdown(report: DailyReport) -> str:
     parts.append("")
     parts.append("## Projected Final Group Tables")
     parts.append("")
-    parts.append("_Only groups that play today. Points and goal difference are "
-                 "simulation averages; Top-2 is the qualification probability._")
+    if not report.tables:
+        parts.append("_No group-stage matches today — knockout rounds in progress._")
+    else:
+        parts.append("_Only groups that play today. Points and goal difference are "
+                     "simulation averages; Top-2 is the qualification probability._")
     for group_name, rows in report.tables.items():
         parts.append("")
         parts.append(f"#### Group {group_name}")
@@ -246,9 +249,13 @@ def to_html(report: DailyReport) -> str:
         parts.append('<p class="muted">No chaos flags today.</p>')
 
     parts.append("<h2>Projected Final Group Tables</h2>")
-    parts.append('<p class="muted">Only groups that play today. Points and goal '
-                 "difference are simulation averages; Top-2 is the qualification "
-                 "probability.</p>")
+    if not report.tables:
+        parts.append('<p class="muted">No group-stage matches today — knockout '
+                     "rounds in progress.</p>")
+    else:
+        parts.append('<p class="muted">Only groups that play today. Points and goal '
+                     "difference are simulation averages; Top-2 is the qualification "
+                     "probability.</p>")
     for group_name, rows in report.tables.items():
         parts.append(f"<h3>Group {_h(group_name)}</h3>")
         parts.append(_html_table(

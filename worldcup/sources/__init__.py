@@ -15,6 +15,7 @@ from typing import Optional
 
 from ..domain import DayData
 from . import espn, filesource, oddsapi
+from .espn import NoFixtures
 from .http import SourceError
 
 
@@ -31,4 +32,4 @@ def load_live(date: str, odds_api_key: Optional[str] = None) -> DayData:
     return day
 
 
-__all__ = ["SourceError", "espn", "filesource", "oddsapi", "load_live"]
+__all__ = ["NoFixtures", "SourceError", "espn", "filesource", "oddsapi", "load_live"]

@@ -96,6 +96,26 @@ class WebServerTests(unittest.TestCase):
         _s, _c, second = self._get("/report.json?date=2026-06-25")
         self.assertEqual(first, second)
 
+    def test_rest_day_returns_friendly_200(self):
+        from worldcup.sources import NoFixtures
+
+        original = web.get_report
+
+        def raise_no_fixtures(date):
+            raise NoFixtures(f"No matches scheduled for {date}.")
+
+        web.get_report = raise_no_fixtures
+        try:
+            status, ctype, body = self._get("/?date=2026-07-06")
+            self.assertEqual(status, 200)
+            self.assertIn("text/html", ctype)
+            self.assertIn("rest day", body)
+            status, _c, body = self._get("/report.json?date=2026-07-06")
+            self.assertEqual(status, 200)
+            self.assertEqual(json.loads(body)["n_matches"], 0)
+        finally:
+            web.get_report = original
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -176,6 +176,15 @@ def projected_impact(
     return f"{fav} advances in {_pct(fav_out.p_top2)} of simulations."
 
 
+def knockout_impact(match: Match, probs: WinProbabilities) -> str:
+    """Impact line for a knockout tie (1X2 probabilities cover 90 minutes)."""
+    fav = market_favorite(match, probs)
+    if fav == "Near Even":
+        return "Coin flip — extra time a real possibility."
+    fav_prob = probs.home if fav == match.home else probs.away
+    return f"{fav} favored to advance ({_pct(fav_prob)} to win in 90 minutes)."
+
+
 def table_status(outlook: TeamOutlook) -> str:
     """Status cell for the projected final group table."""
     if outlook.p_top2 >= 0.995:

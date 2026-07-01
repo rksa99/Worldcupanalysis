@@ -40,6 +40,44 @@ class EspnTests(unittest.TestCase):
         self.assertAlmostEqual(kor.odds.away, 5.50, places=2)
 
 
+class KnockoutTests(unittest.TestCase):
+    def test_cross_group_match_labelled_ko(self):
+        _groups, team_group = espn.parse_standings(_fixture("espn_standings.json"))
+        payload = {
+            "events": [
+                {
+                    "date": "2026-07-01T20:00Z",
+                    "competitions": [
+                        {
+                            "date": "2026-07-01T20:00Z",
+                            "competitors": [
+                                {"homeAway": "home", "team": {"displayName": "Canada"}},
+                                {"homeAway": "away", "team": {"displayName": "South Korea"}},
+                            ],
+                            "odds": [],
+                        }
+                    ],
+                }
+            ]
+        }
+        matches = espn.parse_scoreboard(payload, team_group)
+        self.assertEqual(matches[0].group, "KO")
+
+    def test_empty_scoreboard_raises_no_fixtures(self):
+        standings = _fixture("espn_standings.json")
+
+        def fake_get(url, timeout=25):
+            return standings if "standings" in url else {"events": []}
+
+        original = http.get_json
+        http.get_json = fake_get
+        try:
+            with self.assertRaises(sources.NoFixtures):
+                espn.fetch_day("2026-07-06")
+        finally:
+            http.get_json = original
+
+
 class OddsApiTests(unittest.TestCase):
     def test_overlay_with_alias(self):
         _groups, team_group = espn.parse_standings(_fixture("espn_standings.json"))

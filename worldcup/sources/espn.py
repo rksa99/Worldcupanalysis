@@ -103,9 +103,12 @@ def parse_scoreboard(payload: dict, team_group: dict[str, str]) -> list[Match]:
             continue
         home_name = home.get("team", {}).get("displayName", "")
         away_name = away.get("team", {}).get("displayName", "")
-        group = team_group.get(normalize_team(home_name)) or team_group.get(
-            normalize_team(away_name), "?"
-        )
+        # A group label only makes sense when both teams share one; otherwise
+        # this is a knockout (or unmapped) tie — mark it "KO" so the group
+        # simulator skips it and the report styles it as a knockout.
+        home_g = team_group.get(normalize_team(home_name))
+        away_g = team_group.get(normalize_team(away_name))
+        group = home_g if (home_g and home_g == away_g) else "KO"
         matches.append(
             Match(
                 home=home_name,
@@ -118,6 +121,10 @@ def parse_scoreboard(payload: dict, team_group: dict[str, str]) -> list[Match]:
     return matches
 
 
+class NoFixtures(http.SourceError):
+    """The sources are reachable but no matches are scheduled for the date."""
+
+
 def fetch_day(date: str) -> DayData:
     """Fetch standings + fixtures for `date` (YYYY-MM-DD)."""
     groups, team_group = parse_standings(http.get_json(STANDINGS_URL))
@@ -125,7 +132,7 @@ def fetch_day(date: str) -> DayData:
         http.get_json(f"{SCOREBOARD_URL}?dates={date.replace('-', '')}"), team_group
     )
     if not matches:
-        raise http.SourceError(f"No fixtures found for {date} from ESPN.")
+        raise NoFixtures(f"No matches scheduled for {date}.")
     # Only keep groups that actually play today.
     active = {m.group for m in matches}
     return DayData(

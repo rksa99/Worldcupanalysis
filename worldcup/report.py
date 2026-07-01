@@ -120,13 +120,22 @@ def build_report(
     for model in models:
         match = model.match
         group = day.groups.get(match.group)
+        is_knockout = group is None  # "KO" or any group we have no table for
         group_outlook = outlooks.get(match.group)
         home_out = group_outlook.outlooks.get(match.home) if group_outlook else None
         away_out = group_outlook.outlooks.get(match.away) if group_outlook else None
 
         probs = model.probs
-        home_mot = narrative.derive_motivation(home_out, match.home_motivation)
-        away_mot = narrative.derive_motivation(away_out, match.away_motivation)
+        if is_knockout:
+            home_mot = narrative.Motivation(
+                match.home_motivation or "Win or go home", narrative.ALIVE
+            )
+            away_mot = narrative.Motivation(
+                match.away_motivation or "Win or go home", narrative.ALIVE
+            )
+        else:
+            home_mot = narrative.derive_motivation(home_out, match.home_motivation)
+            away_mot = narrative.derive_motivation(away_out, match.away_motivation)
         favorite = narrative.market_favorite(match, probs)
         conf = narrative.confidence(match, probs, home_mot, away_mot)
 
@@ -142,11 +151,19 @@ def build_report(
                 confidence=conf,
             )
         )
+        if is_knockout:
+            situation = match.situation or "Knockout round — loser goes home."
+            impact = narrative.knockout_impact(match, probs)
+        else:
+            situation = narrative.situation_sentence(match, group)
+            impact = narrative.projected_impact(
+                match, probs, home_out, away_out, home_mot, away_mot
+            )
         rows.append(
             MatchRow(
                 match=match.label,
-                group=match.group,
-                situation=narrative.situation_sentence(match, group),
+                group="KO" if is_knockout else match.group,
+                situation=situation,
                 motivation=f"{match.home}: {home_mot.label}; {match.away}: {away_mot.label}",
                 favorite=favorite,
                 probs_pct=probs.pct_string(),
@@ -156,9 +173,7 @@ def build_report(
                 likely_scores=model.top_scores_string,
                 style=narrative.expected_style(match, model, probs, home_mot, away_mot),
                 confidence=conf,
-                impact=narrative.projected_impact(
-                    match, probs, home_out, away_out, home_mot, away_mot
-                ),
+                impact=impact,
             )
         )
 

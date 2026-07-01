@@ -64,5 +64,26 @@ class ReportTests(unittest.TestCase):
         self.assertIn("simulations", row.impact)
 
 
+class KnockoutReportTests(unittest.TestCase):
+    def test_knockout_day_renders_without_group_tables(self):
+        from worldcup.domain import DayData, Match, Odds
+
+        day = DayData(
+            date="2026-07-01",
+            groups={},
+            matches=[
+                Match("Canada", "South Korea", "KO", odds=Odds(1.80, 3.40, 4.60)),
+            ],
+        )
+        report = build_report(day, n_sims=1000, seed=1)
+        row = report.rows[0]
+        self.assertEqual(row.group, "KO")
+        self.assertIn("Win or go home", row.motivation)
+        self.assertIn("advance", row.impact)
+        self.assertEqual(report.tables, {})
+        md = to_markdown(report)
+        self.assertIn("knockout rounds in progress", md)
+
+
 if __name__ == "__main__":
     unittest.main()
